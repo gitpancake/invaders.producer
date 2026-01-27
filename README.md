@@ -1,13 +1,13 @@
 # 🎯 Space Invaders Bot
 
-A high-performance, production-ready TypeScript bot that processes **41M+ Space Invaders flash images** with real-time synchronization, health monitoring, and advanced performance optimization.
+A high-performance, production-ready TypeScript bot that processes Space Invaders flash images with real-time synchronization, health monitoring, and advanced performance optimization.
 
 ## 🚀 Core Functionality
 
 This cron-driven bot maintains a complete pipeline for Space Invaders street art data:
 
 - **🔄 Real-time Flash Sync**: Fetches latest flashes from space-invaders.com API every 5 minutes
-- **🗄️ PostgreSQL Storage**: Robust database operations with 41M+ flash records and conflict handling
+- **🗄️ PostgreSQL Storage**: Robust database operations with real-time flash records and conflict handling
 - **📬 RabbitMQ Integration**: Queues flashes for image processing with batch optimization
 - **🎨 Image Processing**: IPFS integration for decentralized image storage
 - **📱 Social Media**: Auto-posts to Farcaster via Neynar SDK for registered users
@@ -171,7 +171,7 @@ yarn performance-monitor [check|optimize|full]
 - **Health Checks**: Complete system analysis in <2 seconds
 
 ### Production Scale
-- **Flash Database**: 41M+ records and growing
+- **Real-time Processing**: Continuous flash synchronization with space-invaders.com
 - **Processing Rate**: ~8-17 new flashes per 5-minute cycle
 - **Memory Efficiency**: Stable usage over 24+ hour periods
 - **Uptime**: Designed for continuous 24/7 operation
@@ -245,7 +245,7 @@ yarn test:ci
 
 ## 🤝 Contributing
 
-This bot maintains critical infrastructure for Space Invaders flash processing. When contributing:
+This bot maintains real-time infrastructure for Space Invaders flash processing. When contributing:
 
 1. **Test Thoroughly**: Use the comprehensive testing suite
 2. **Monitor Performance**: Run performance checks before and after changes
@@ -258,4 +258,4 @@ ISC
 
 ---
 
-**Built with ❤️ for the Space Invaders community** | **Handling 41M+ flashes and growing** 🚀
+**Built with ❤️ for the Space Invaders community** | **Real-time flash synchronization** 🚀
