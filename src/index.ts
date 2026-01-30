@@ -1,17 +1,22 @@
 import { config } from "dotenv";
 import { CombinedSyncCron } from "./util/cron-jobs/combined-sync";
+import { startHealthApi } from "./util/health-api";
 
 config({ path: ".env" });
 
 const main = async () => {
-  const combinedSyncCron = new CombinedSyncCron("*/5 * * * *");
+    // Start the health API server
+    await startHealthApi();
 
-  combinedSyncCron.register();
+    // Start the cron jobs
+    const combinedSyncCron = new CombinedSyncCron("*/5 * * * *");
 
-  await combinedSyncCron.task();
+    combinedSyncCron.register();
+
+    await combinedSyncCron.task();
 };
 
 main().catch((error) => {
-  console.error(error);
-  process.exit(1);
+    console.error(error);
+    process.exit(1);
 });

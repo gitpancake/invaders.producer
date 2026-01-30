@@ -6,9 +6,7 @@ import { HealthService } from './health.service';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      envFilePath: '../.env',
-    }),
+    ConfigModule.forRoot(),
     ThrottlerModule.forRoot([{
       ttl: 60000,
       limit: 10,

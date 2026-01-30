@@ -2,10 +2,11 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+export async function startHealthApi(): Promise<void> {
+  const app = await NestFactory.create(AppModule, {
+    logger: ['error', 'warn'],
+  });
 
-  // Enable CORS for dashboard
   app.enableCors({
     origin: process.env.DASHBOARD_URL || 'http://localhost:3000',
     credentials: true,
@@ -15,4 +16,3 @@ async function bootstrap() {
   await app.listen(port);
   console.log(`[HealthAPI] Running on port ${port}`);
 }
-bootstrap();

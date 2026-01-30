@@ -7,15 +7,14 @@ export class HealthController {
   constructor(private readonly healthService: HealthService) {}
 
   @Get()
-  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per minute for basic health
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   async getHealth() {
     return this.healthService.getQuickHealth();
   }
 
   @Get('detailed')
-  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 requests per minute for detailed
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   async getDetailedHealth(@Headers('x-api-key') apiKey: string) {
-    // Simple API key check
     if (apiKey !== process.env.HEALTH_API_KEY) {
       throw new UnauthorizedException('Invalid API key');
     }
