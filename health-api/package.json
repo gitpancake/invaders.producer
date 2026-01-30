@@ -1,0 +1,32 @@
+{
+    "name": "health-api",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "start": "node dist/main.js",
+        "dev": "ts-node src/main.ts",
+        "build": "tsc",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "type": "commonjs",
+    "dependencies": {
+        "@nestjs/common": "^11.1.12",
+        "@nestjs/config": "^4.0.2",
+        "@nestjs/core": "^11.1.12",
+        "@nestjs/platform-express": "^11.1.12",
+        "@nestjs/throttler": "^6.5.0",
+        "pg": "^8.18.0",
+        "reflect-metadata": "^0.2.2",
+        "rxjs": "^7.8.2"
+    },
+    "devDependencies": {
+        "@types/node": "^25.1.0",
+        "@types/pg": "^8.16.0",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.9.3"
+    }
+}
