@@ -1,3 +1,7 @@
+// Initialize tracing before all other imports
+import { initTracing } from "./util/tracing";
+const tracingSdk = initTracing();
+
 import { config } from "dotenv";
 import { CombinedSyncCron } from "./util/cron-jobs/combined-sync";
 import { startMetricsServer } from "./util/metrics";
