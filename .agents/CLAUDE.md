@@ -141,3 +141,28 @@ Optional:
 - Source maps enabled for debugging
 - Husky for git hooks
 - Structured JSON logging in production
+
+## Prometheus Metrics
+
+The producer exposes Prometheus metrics on port 9090:
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /metrics` | Prometheus metrics endpoint |
+| `GET /health` | Simple health check |
+
+**Key metrics exposed:**
+- `invaders_bot_flashes_new_total` - New flashes discovered and stored in database
+- `invaders_bot_api_calls_total{result}` - API calls with result label (success/error)
+- `invaders_bot_sync_skipped_total{reason}` - Sync skips by reason (no_changes/backoff/off_peak_hours)
+- `invaders_bot_messages_published_total` - Messages published to RabbitMQ
+- `invaders_bot_messages_failed_total` - Failed message publishes
+- `invaders_bot_casts_published_total` - Farcaster casts published
+- `invaders_bot_casts_failed_total` - Failed Farcaster casts
+- `invaders_bot_last_sync_timestamp` - Unix timestamp of last successful sync with new flashes
+- `invaders_bot_last_api_call_timestamp` - Unix timestamp of last API call
+- `invaders_bot_consecutive_unchanged_syncs` - Consecutive syncs with no new flashes
+- `invaders_bot_last_flash_count` - Total flash count from API response
+- `invaders_bot_sync_duration_seconds` - Sync operation duration histogram
+- `invaders_bot_uptime_seconds` - Service uptime
+- `invaders_bot_memory_bytes` - Memory usage by type (heap_used, heap_total, rss, external)
