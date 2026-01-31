@@ -1,33 +1,6 @@
 import { Channel, ChannelModel, connect } from "amqplib";
 import { Flash } from "../database/invader-flashes/types";
-
-// Message counter for health monitoring
-class MessageCounter {
-    private published: number = 0;
-    private failed: number = 0;
-    private lastPublishedAt: Date | null = null;
-    private startedAt: Date = new Date();
-
-    increment() {
-        this.published++;
-        this.lastPublishedAt = new Date();
-    }
-
-    incrementFailed() {
-        this.failed++;
-    }
-
-    getStats() {
-        return {
-            published: this.published,
-            failed: this.failed,
-            lastPublishedAt: this.lastPublishedAt?.toISOString() || null,
-            startedAt: this.startedAt.toISOString(),
-        };
-    }
-}
-
-export const messageCounter = new MessageCounter();
+import { messagesPublishedTotal, messagesFailedTotal } from "../metrics";
 
 export interface ExecuteResponse {
     status: string;
@@ -88,12 +61,12 @@ export abstract class RabbitMQBase {
                 { persistent: true },
             );
             if (!sent) {
-                messageCounter.incrementFailed();
+                messagesFailedTotal.inc();
                 throw new Error(
                     `Failed to send message to RabbitMQ queue: ${queue}`,
                 );
             }
-            messageCounter.increment();
+            messagesPublishedTotal.inc();
             return {
                 status: "queued",
                 message: `Event published to RabbitMQ queue: ${queue}: ${payload.flash_id}`,
