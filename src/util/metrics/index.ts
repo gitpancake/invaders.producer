@@ -17,15 +17,23 @@ collectDefaultMetrics({ register });
 // COUNTERS
 // ============================================
 
-export const flashesSyncedTotal = new Counter({
-  name: "invaders_bot_flashes_synced_total",
-  help: "Total flashes synced from Space Invaders API",
+export const flashesNewTotal = new Counter({
+  name: "invaders_bot_flashes_new_total",
+  help: "New flashes discovered and stored in database",
   registers: [register],
 });
 
-export const flashesNewTotal = new Counter({
-  name: "invaders_bot_flashes_new_total",
-  help: "New flashes discovered and stored",
+export const apiCallsTotal = new Counter({
+  name: "invaders_bot_api_calls_total",
+  help: "Total API calls made to Space Invaders API",
+  labelNames: ["result"],
+  registers: [register],
+});
+
+export const syncSkippedTotal = new Counter({
+  name: "invaders_bot_sync_skipped_total",
+  help: "Number of sync runs skipped",
+  labelNames: ["reason"],
   registers: [register],
 });
 
@@ -53,25 +61,31 @@ export const castsFailedTotal = new Counter({
   registers: [register],
 });
 
-export const apiRequestsTotal = new Counter({
-  name: "invaders_bot_api_requests_total",
-  help: "Requests to Space Invaders API",
-  registers: [register],
-});
-
-export const apiErrorsTotal = new Counter({
-  name: "invaders_bot_api_errors_total",
-  help: "Space Invaders API request errors",
-  registers: [register],
-});
-
 // ============================================
 // GAUGES
 // ============================================
 
 export const lastSyncTimestamp = new Gauge({
   name: "invaders_bot_last_sync_timestamp",
-  help: "Unix timestamp of last successful sync",
+  help: "Unix timestamp of last successful sync with new flashes",
+  registers: [register],
+});
+
+export const lastApiCallTimestamp = new Gauge({
+  name: "invaders_bot_last_api_call_timestamp",
+  help: "Unix timestamp of last API call (successful or not)",
+  registers: [register],
+});
+
+export const consecutiveUnchangedSyncs = new Gauge({
+  name: "invaders_bot_consecutive_unchanged_syncs",
+  help: "Number of consecutive syncs with no new flashes",
+  registers: [register],
+});
+
+export const lastFlashCount = new Gauge({
+  name: "invaders_bot_last_flash_count",
+  help: "Flash count from the last API response",
   registers: [register],
 });
 
@@ -118,7 +132,8 @@ setInterval(() => {
 
 export function startMetricsServer(port: number = 9090): void {
   const server = http.createServer(async (req, res) => {
-    if (req.url === "/metrics") {
+    const url = req.url?.split("?")[0] || "";
+    if (url === "/metrics" || url === "/") {
       try {
         res.setHeader("Content-Type", register.contentType);
         res.end(await register.metrics());
@@ -126,7 +141,7 @@ export function startMetricsServer(port: number = 9090): void {
         res.statusCode = 500;
         res.end("Error collecting metrics");
       }
-    } else if (req.url === "/health") {
+    } else if (url === "/health") {
       res.setHeader("Content-Type", "application/json");
       res.end(JSON.stringify({ status: "ok" }));
     } else {

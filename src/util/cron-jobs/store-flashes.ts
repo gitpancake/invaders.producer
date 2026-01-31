@@ -6,17 +6,19 @@ import { formattedCurrentTime } from "../times";
 import { CronTask } from "./base";
 import { DiskPersistence } from "../disk-persistence";
 import {
-    flashesSyncedTotal,
     flashesNewTotal,
-    apiRequestsTotal,
-    apiErrorsTotal,
+    apiCallsTotal,
+    syncSkippedTotal,
     lastSyncTimestamp,
+    lastApiCallTimestamp,
+    consecutiveUnchangedSyncs,
+    lastFlashCount,
     syncDurationSeconds,
 } from "../metrics";
 
 export class StoreFlashesCron extends CronTask {
     private static diskPersistence: DiskPersistence = new DiskPersistence();
-    private static lastFlashCount: string | null = null;
+    private static lastFlashCountValue: string | null = null;
     private static consecutiveNoChanges: number = 0;
 
     constructor(schedule: string) {
@@ -36,6 +38,7 @@ export class StoreFlashesCron extends CronTask {
                 console.log(
                     `[StoreFlashesCron] Skipping run during off-peak hours (European night)`,
                 );
+                syncSkippedTotal.inc({ reason: "off_peak_hours" });
                 return;
             }
         }
@@ -56,12 +59,13 @@ export class StoreFlashesCron extends CronTask {
             );
         }
 
-        apiRequestsTotal.inc();
+        lastApiCallTimestamp.set(Date.now() / 1000);
         let flashes;
         try {
             flashes = await invaderApi.getFlashes();
+            apiCallsTotal.inc({ result: "success" });
         } catch (error) {
-            apiErrorsTotal.inc();
+            apiCallsTotal.inc({ result: "error" });
             throw error;
         }
 
@@ -74,15 +78,16 @@ export class StoreFlashesCron extends CronTask {
             throw new Error("No flashes found since " + formattedCurrentTime());
         }
 
-        // Track synced flashes
-        flashesSyncedTotal.inc(
-            flashes.with_paris.length + flashes.without_paris.length,
-        );
+        // Update flash count gauge
+        const currentFlashCount = flashes.flash_count;
+        if (currentFlashCount) {
+            lastFlashCount.set(parseInt(currentFlashCount, 10) || 0);
+        }
 
         // Check if flash count has changed to avoid unnecessary processing
-        const currentFlashCount = flashes.flash_count;
-        if (StoreFlashesCron.lastFlashCount === currentFlashCount) {
+        if (StoreFlashesCron.lastFlashCountValue === currentFlashCount) {
             StoreFlashesCron.consecutiveNoChanges++;
+            consecutiveUnchangedSyncs.set(StoreFlashesCron.consecutiveNoChanges);
 
             // Implement backoff: skip more frequently if we've seen many unchanged results
             const backoffThreshold = Math.min(
@@ -96,21 +101,24 @@ export class StoreFlashesCron extends CronTask {
                 console.log(
                     `[StoreFlashesCron] Backoff skip (${StoreFlashesCron.consecutiveNoChanges} consecutive unchanged, count: ${currentFlashCount})`,
                 );
+                syncSkippedTotal.inc({ reason: "backoff" });
                 return;
             }
 
             console.log(
                 `[StoreFlashesCron] No new flashes detected (${StoreFlashesCron.consecutiveNoChanges} consecutive, count: ${currentFlashCount}) - skipping processing`,
             );
+            syncSkippedTotal.inc({ reason: "no_changes" });
             return;
         }
 
         // Reset backoff counter when we detect changes
         console.log(
-            `[StoreFlashesCron] Flash count changed: ${StoreFlashesCron.lastFlashCount} → ${currentFlashCount} (after ${StoreFlashesCron.consecutiveNoChanges} unchanged)`,
+            `[StoreFlashesCron] Flash count changed: ${StoreFlashesCron.lastFlashCountValue} → ${currentFlashCount} (after ${StoreFlashesCron.consecutiveNoChanges} unchanged)`,
         );
         StoreFlashesCron.consecutiveNoChanges = 0;
-        StoreFlashesCron.lastFlashCount = currentFlashCount;
+        consecutiveUnchangedSyncs.set(0);
+        StoreFlashesCron.lastFlashCountValue = currentFlashCount;
 
         const flattened = [...flashes.with_paris, ...flashes.without_paris];
         await StoreFlashesCron.processFlashes(
