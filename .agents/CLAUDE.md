@@ -166,3 +166,19 @@ The producer exposes Prometheus metrics on port 9090:
 - `invaders_bot_sync_duration_seconds` - Sync operation duration histogram
 - `invaders_bot_uptime_seconds` - Service uptime
 - `invaders_bot_memory_bytes` - Memory usage by type (heap_used, heap_total, rss, external)
+
+## Distributed Tracing (OpenTelemetry)
+
+The producer sends distributed traces to Tempo via OpenTelemetry Protocol (OTLP).
+
+**Tracing initialization** is in `src/util/tracing/index.ts` and must be imported at the very top of `src/index.ts` before any other imports.
+
+**Environment variable:**
+- `TEMPO_HTTP_ENDPOINT` - Tempo OTLP endpoint (e.g., `http://tempo.railway.internal:4318/v1/traces`)
+
+**Auto-instrumented:**
+- HTTP requests
+- PostgreSQL queries
+- Express routes
+
+When `TEMPO_HTTP_ENDPOINT` is not set, tracing is disabled and no traces are sent.

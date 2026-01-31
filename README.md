@@ -108,6 +108,12 @@ API_URL=https://api.space-invaders.com
 API_TIMEOUT=15000
 ```
 
+### Observability
+```bash
+# Distributed Tracing (OpenTelemetry)
+TEMPO_HTTP_ENDPOINT=http://tempo.railway.internal:4318/v1/traces
+```
+
 ### Optional Performance Tuning
 ```bash
 # Database Pool
@@ -151,6 +157,10 @@ The bot provides comprehensive health monitoring for:
 - **Memory Usage** (heap usage, GC performance)
 - **Disk Persistence** (failed flash tracking)
 
+### Observability
+- **Prometheus Metrics** (port 9090): Request rates, errors, sync durations, memory usage
+- **Distributed Tracing** (via OTLP): Auto-instrumented HTTP, PostgreSQL, and Express traces sent to Tempo
+
 ### Operational Scripts
 ```bash
 # Cast verification and repair
@@ -190,11 +200,12 @@ yarn performance-monitor [check|optimize|full]
 │   Database      │    │   Monitoring     │    │   (Neynar)      │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
                               │
-                              ▼
-                       ┌──────────────────┐
-                       │   RabbitMQ       │
-                       │   Message Queue  │
-                       └──────────────────┘
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+       ┌────────────┐  ┌────────────┐  ┌────────────┐
+       │  RabbitMQ  │  │ Prometheus │  │   Tempo    │
+       │   Queue    │  │  Metrics   │  │  Tracing   │
+       └────────────┘  └────────────┘  └────────────┘
 ```
 
 ## 🧪 Testing
