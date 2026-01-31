@@ -218,8 +218,13 @@ export class HealthChecker {
         } catch (error) {
             const responseTime = Date.now() - startTime;
 
+            // Timeouts are degraded (slow but reachable), other errors are unhealthy
+            const isTimeout =
+                (error as any).code === "ECONNABORTED" ||
+                (error as any).code === "ETIMEDOUT";
+
             return {
-                status: "unhealthy",
+                status: isTimeout ? "degraded" : "unhealthy",
                 responseTime,
                 error: (error as Error).message,
                 lastCheck: new Date().toISOString(),
