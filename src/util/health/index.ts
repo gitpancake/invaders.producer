@@ -203,7 +203,13 @@ export class HealthChecker {
             // Consider API health based on response
             let status: "healthy" | "degraded" | "unhealthy";
             if (response.status >= 200 && response.status < 300) {
-                status = "healthy";
+                if (responseTime >= 30000) {
+                    status = "unhealthy";
+                } else if (responseTime >= 10000) {
+                    status = "degraded";
+                } else {
+                    status = "healthy";
+                }
             } else if (response.status >= 400 && response.status < 500) {
                 status = "degraded"; // Client errors might be temporary (rate limiting, etc.)
             } else {
