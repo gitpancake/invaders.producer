@@ -193,8 +193,8 @@ export class HealthChecker {
             const response = await axios.get(
                 `${this.apiUrl}/flashinvaders/flashes/`,
                 {
-                    timeout: 5000,
-                    validateStatus: (status) => status >= 200 && status < 500, // Accept 4xx as degraded, not unhealthy
+                    timeout: 30000,
+                    validateStatus: (status) => status >= 200 && status < 500,
                 },
             );
 
@@ -203,7 +203,7 @@ export class HealthChecker {
             // Consider API health based on response
             let status: "healthy" | "degraded" | "unhealthy";
             if (response.status >= 200 && response.status < 300) {
-                status = responseTime > 10000 ? "degraded" : "healthy";
+                status = "healthy";
             } else if (response.status >= 400 && response.status < 500) {
                 status = "degraded"; // Client errors might be temporary (rate limiting, etc.)
             } else {
@@ -218,13 +218,8 @@ export class HealthChecker {
         } catch (error) {
             const responseTime = Date.now() - startTime;
 
-            // Network timeouts are degraded, other errors are unhealthy
-            const isDegraded =
-                (error as any).code === "ECONNABORTED" ||
-                (error as any).code === "ETIMEDOUT";
-
             return {
-                status: isDegraded ? "degraded" : "unhealthy",
+                status: "unhealthy",
                 responseTime,
                 error: (error as Error).message,
                 lastCheck: new Date().toISOString(),
