@@ -1,6 +1,5 @@
 import { Pool } from "pg";
 import { connect } from "amqplib";
-import axios from "axios";
 import { DiskPersistence } from "../disk-persistence";
 
 export interface HealthStatus {
@@ -10,7 +9,6 @@ export interface HealthStatus {
     services: {
         database: ServiceHealth;
         rabbitmq: ServiceHealth;
-        spaceInvadersAPI: ServiceHealth;
         diskPersistence: ServiceHealth;
     };
     metrics: {
@@ -33,7 +31,6 @@ export class HealthChecker {
     constructor(
         private dbPool: Pool,
         private rabbitmqUrl: string,
-        private apiUrl: string = "https://api.space-invaders.com",
     ) {
         this.startTime = Date.now();
     }
@@ -47,18 +44,15 @@ export class HealthChecker {
         console.log("[HealthChecker] Starting health check...");
 
         // Run all service checks in parallel for speed
-        const [database, rabbitmq, spaceInvadersAPI, diskPersistence] =
-            await Promise.allSettled([
-                this.checkDatabase(),
-                this.checkRabbitMQ(),
-                this.checkSpaceInvadersAPI(),
-                this.checkDiskPersistence(),
-            ]);
+        const [database, rabbitmq, diskPersistence] = await Promise.allSettled([
+            this.checkDatabase(),
+            this.checkRabbitMQ(),
+            this.checkDiskPersistence(),
+        ]);
 
         const services = {
             database: this.getServiceResult(database),
             rabbitmq: this.getServiceResult(rabbitmq),
-            spaceInvadersAPI: this.getServiceResult(spaceInvadersAPI),
             diskPersistence: this.getServiceResult(diskPersistence),
         };
 
@@ -179,62 +173,6 @@ export class HealthChecker {
                     await connection.close();
                 } catch {}
             }
-        }
-    }
-
-    /**
-     * Check Space Invaders API availability
-     */
-    private async checkSpaceInvadersAPI(): Promise<ServiceHealth> {
-        const startTime = Date.now();
-
-        try {
-            // Use a lightweight endpoint check with timeout
-            const response = await axios.get(
-                `${this.apiUrl}/flashinvaders/flashes/`,
-                {
-                    timeout: 30000,
-                    validateStatus: (status) => status >= 200 && status < 500,
-                },
-            );
-
-            const responseTime = Date.now() - startTime;
-
-            // Consider API health based on response
-            let status: "healthy" | "degraded" | "unhealthy";
-            if (response.status >= 200 && response.status < 300) {
-                if (responseTime >= 30000) {
-                    status = "unhealthy";
-                } else if (responseTime >= 10000) {
-                    status = "degraded";
-                } else {
-                    status = "healthy";
-                }
-            } else if (response.status >= 400 && response.status < 500) {
-                status = "degraded"; // Client errors might be temporary (rate limiting, etc.)
-            } else {
-                status = "unhealthy";
-            }
-
-            return {
-                status,
-                responseTime,
-                lastCheck: new Date().toISOString(),
-            };
-        } catch (error) {
-            const responseTime = Date.now() - startTime;
-
-            // Timeouts are degraded (slow but reachable), other errors are unhealthy
-            const isTimeout =
-                (error as any).code === "ECONNABORTED" ||
-                (error as any).code === "ETIMEDOUT";
-
-            return {
-                status: isTimeout ? "degraded" : "unhealthy",
-                responseTime,
-                error: (error as Error).message,
-                lastCheck: new Date().toISOString(),
-            };
         }
     }
 

@@ -20,7 +20,6 @@ export class HealthService {
         this.healthChecker = new HealthChecker(
             this.dbPool,
             process.env.RABBITMQ_URL || "",
-            process.env.API_URL,
         );
     }
 
@@ -62,13 +61,11 @@ export class HealthService {
                 checks: {
                     database: health.services.database.status,
                     rabbitmq: health.services.rabbitmq.status,
-                    spaceInvadersAPI: health.services.spaceInvadersAPI.status,
                     diskPersistence: health.services.diskPersistence.status,
                 },
                 responseTimes: {
                     database: health.services.database.responseTime,
                     rabbitmq: health.services.rabbitmq.responseTime,
-                    api: health.services.spaceInvadersAPI.responseTime,
                 },
             };
 
