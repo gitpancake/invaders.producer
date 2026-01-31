@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { Pool } from "pg";
 import { HealthChecker } from "../health";
+import { messageCounter } from "../rabbitmq";
 
 @Injectable()
 export class HealthService {
@@ -57,6 +58,7 @@ export class HealthService {
                     ),
                     failedFlashes: health.metrics.failedFlashesCount,
                     processUptime: health.metrics.processUptime,
+                    messages: messageCounter.getStats(),
                 },
                 checks: {
                     database: health.services.database.status,
