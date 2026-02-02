@@ -3,10 +3,7 @@ import { config } from "dotenv";
 import { FlashcastrFlashesDb } from "../database/flashcastr-flashes";
 import { FlashcastrFlash } from "../database/flashcastr-flashes/types";
 import { FlashcastrUsersDb } from "../database/flashcastr-users";
-import { FlashIdentificationsDb } from "../database/flash-identifications";
-import { FlashIdentification } from "../database/flash-identifications/types";
 import { PostgresFlashesDb } from "../database/invader-flashes";
-import { Flash } from "../database/invader-flashes/types";
 import { decrypt } from "../encrypt";
 import { NeynarUsers } from "../neynar/users";
 import { formattedCurrentTime } from "../times";
@@ -14,23 +11,6 @@ import { CronTask } from "./base";
 import { castsPublishedTotal, castsFailedTotal } from "../metrics";
 
 config({ path: ".env" });
-
-const CONFIDENCE_THRESHOLD = 0.8;
-
-/**
- * Generate the cast message for a flash
- * If high-confidence identification exists, use the flash name
- * Otherwise, fall back to city name
- */
-function generateCastMessage(
-    flash: { city: string },
-    identification: FlashIdentification | null,
-): string {
-    if (identification && identification.confidence >= CONFIDENCE_THRESHOLD && identification.matched_flash_name) {
-        return `I just flashed ${identification.matched_flash_name} in ${flash.city}! 👾`;
-    }
-    return `I just flashed an Invader in ${flash.city}! 👾`;
-}
 
 export class FlashSyncCron extends CronTask {
     private static flashTimespanMins = 60; // 1 hour lookback
@@ -89,16 +69,7 @@ export class FlashSyncCron extends CronTask {
             const neynarByFid = new Map(neynarUsers.map((u) => [u.fid, u]));
 
             /* ------------------------------------------------------------------ */
-            /* 5.  Fetch flash identifications for all new flashes                */
-            /* ------------------------------------------------------------------ */
-            const ipfsCids = newFlashes
-                .filter((f) => f.ipfs_cid && f.ipfs_cid.trim() !== "")
-                .map((f) => f.ipfs_cid);
-            const identificationsDb = new FlashIdentificationsDb();
-            const identificationsByCid = await identificationsDb.getByIpfsCids(ipfsCids);
-
-            /* ------------------------------------------------------------------ */
-            /* 6.  Build flash-documents & optionally publish auto-casts          */
+            /* 5.  Build flash-documents & optionally publish auto-casts          */
             /* ------------------------------------------------------------------ */
             const publisher = new NeynarUsers(); // reuse 1 instance
             const docs: FlashcastrFlash[] = [];
@@ -131,16 +102,12 @@ export class FlashSyncCron extends CronTask {
                                 "SIGNER_ENCRYPTION_KEY is not defined",
                             );
 
-                        // Get identification for this flash
-                        const identification = identificationsByCid.get(flash.ipfs_cid) || null;
-                        const castMessage = generateCastMessage(flash, identification);
-
                         castHash = await publisher.publishCast({
                             signerUuid: decrypt(
                                 appUser.signer_uuid,
                                 decryptionKey,
                             ),
-                            msg: castMessage,
+                            msg: `I just flashed an Invader in ${flash.city}! 👾`,
                             embeds: [
                                 {
                                     url: `https://www.flashcastr.app/flash/${flash.flash_id}`,
@@ -148,14 +115,6 @@ export class FlashSyncCron extends CronTask {
                             ],
                             channelId: "invaders",
                         });
-
-                        // Log which message was used
-                        if (identification && identification.confidence >= CONFIDENCE_THRESHOLD) {
-                            console.log(
-                                `[FlashSyncCron] Cast with identification: ${identification.matched_flash_name} (${(identification.confidence * 100).toFixed(1)}% confidence)`,
-                            );
-                        }
-
                         castsPublishedTotal.inc();
                     } catch (err) {
                         castsFailedTotal.inc();
@@ -163,6 +122,8 @@ export class FlashSyncCron extends CronTask {
                             `Failed to auto-cast flash ${flash.flash_id}:`,
                             err,
                         );
+                        // Don't throw - continue processing other flashes
+                        // This flash will be recorded with cast_hash: null for later retry
                     }
                 }
 
@@ -176,7 +137,7 @@ export class FlashSyncCron extends CronTask {
             }
 
             /* ------------------------------------------------------------------ */
-            /* 7.  Persist & log                                                  */
+            /* 6.  Persist & log                                                  */
             /* ------------------------------------------------------------------ */
             if (docs.length) await flashcastrFlashesDb.insertMany(docs);
 
@@ -194,6 +155,9 @@ export class FlashSyncCron extends CronTask {
         try {
             console.log("[FlashSyncCron] Starting retry of failed casts...");
 
+            /* ------------------------------------------------------------------ */
+            /* 1.  Fetch flashes with failed casts                                */
+            /* ------------------------------------------------------------------ */
             const flashcastrFlashesDb = new FlashcastrFlashesDb();
             const failedFlashes =
                 await flashcastrFlashesDb.getFailedCastsForRetry(
@@ -210,17 +174,9 @@ export class FlashSyncCron extends CronTask {
                 `[FlashSyncCron] Found ${failedFlashes.length} failed casts to retry`,
             );
 
-            const flashIds = failedFlashes.map((f) => f.flash_id);
-            const flashesDb = new PostgresFlashesDb();
-            const flashDetails = await flashesDb.getByIds(flashIds);
-            const flashDetailsMap = new Map(flashDetails.map((f) => [f.flash_id, f]));
-
-            const ipfsCids = flashDetails
-                .filter((f) => f.ipfs_cid && f.ipfs_cid.trim() !== "")
-                .map((f) => f.ipfs_cid);
-            const identificationsDb = new FlashIdentificationsDb();
-            const identificationsByCid = await identificationsDb.getByIpfsCids(ipfsCids);
-
+            /* ------------------------------------------------------------------ */
+            /* 2.  Attempt to cast each failed flash                              */
+            /* ------------------------------------------------------------------ */
             const publisher = new NeynarUsers();
             let successCount = 0;
             let failCount = 0;
@@ -234,21 +190,9 @@ export class FlashSyncCron extends CronTask {
                         continue;
                     }
 
-                    const flashDetail = flashDetailsMap.get(flash.flash_id);
-                    let identification: FlashIdentification | null = null;
-                    
-                    if (flashDetail?.ipfs_cid) {
-                        identification = identificationsByCid.get(flashDetail.ipfs_cid) || null;
-                    }
-
-                    const castMessage = generateCastMessage(
-                        { city: flash.city },
-                        identification,
-                    );
-
                     const castHash = await publisher.publishCast({
                         signerUuid: decrypt(flash.signer_uuid, decryptionKey),
-                        msg: castMessage,
+                        msg: `I just flashed an Invader in ${flash.city}! 👾`,
                         embeds: [
                             {
                                 url: `https://www.flashcastr.app/flash/${flash.flash_id}`,
@@ -257,6 +201,7 @@ export class FlashSyncCron extends CronTask {
                         channelId: "invaders",
                     });
 
+                    // Update the cast hash in database
                     await flashcastrFlashesDb.updateCastHash(
                         flash.flash_id,
                         castHash,
@@ -273,6 +218,7 @@ export class FlashSyncCron extends CronTask {
                         `[FlashSyncCron] Failed to retry cast for flash ${flash.flash_id}:`,
                         err,
                     );
+                    // Continue to next flash
                 }
             }
 
